@@ -1,0 +1,78 @@
+# .github/codeql/codeql-config.yml
+name: "Custom CodeQL config"
+
+# If true, ONLY the queries/packs listed below run.
+# If false (default), the built-in `default` suite also runs.
+disable-default-queries: false
+
+# ------------------------------------------------------------------
+# Which queries to run
+# ------------------------------------------------------------------
+queries:
+  # Built-in suites (pick your sensitivity tier):
+  #   default              -> high precision, low false positives
+  #   security-extended    -> adds lower-precision security queries
+  #   security-and-quality -> adds maintainability/reliability queries (noisy)
+  - uses: security-extended
+
+  # Custom queries stored in this repo (path must start with ./)
+  - name: Org custom security rules
+    uses: ./codeql/custom-queries          # directory of .ql files (needs a qlpack.yml)
+
+  # A single custom query file works too:
+  # - name: No eval
+  #   uses: ./codeql/custom-queries/no-eval.ql
+
+# ------------------------------------------------------------------
+# Query packs published to the GitHub Container Registry
+# (share rules org-wide without copying files)
+# ------------------------------------------------------------------
+packs:
+  - my-org/codeql-security-queries@~1.2.0        # a published custom pack
+  # - codeql/javascript-queries:experimental/... # cherry-pick a query from a public pack
+
+# ------------------------------------------------------------------
+# Fine-grained sensitivity tuning (applied AFTER suites are resolved)
+# ------------------------------------------------------------------
+query-filters:
+  # Silence low-value noise
+  - exclude:
+      problem.severity:
+        - recommendation
+
+  # Only alert on security findings with a CVSS-like score >= 5.0
+  - exclude:
+      security-severity:
+        - "[0, 4.9]"
+
+  # Disable specific noisy rules by ID
+  - exclude:
+      id:
+        - js/incomplete-sanitization
+        - py/clear-text-logging-sensitive-data
+
+  # Whitelist approach instead (uncomment): only high-precision problems
+  # - include:
+  #     kind: problem
+  # - include:
+  #     precision: high
+
+# ------------------------------------------------------------------
+# Scope the analysis
+# ------------------------------------------------------------------
+paths:
+  - src                          # only analyze these directories
+  - apps
+
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/generated/**'
+  - '**/*.test.ts'               # glob patterns are quoted
+  - '**/migrations/**'
+
+# ------------------------------------------------------------------
+# Java/Kotlin only: dependencies for compiled-code analysis
+# ------------------------------------------------------------------
+# java:
+#   build-mode: manual
