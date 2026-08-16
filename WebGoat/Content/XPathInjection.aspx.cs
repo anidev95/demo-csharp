@@ -6,6 +6,7 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 using System.Xml;
 using System.Xml.XPath;
+using System.Xml.Xsl;
 
 namespace OWASP.WebGoat.NET
 {
@@ -21,11 +22,51 @@ namespace OWASP.WebGoat.NET
             }
         }
 
+        private sealed class XPathVariableContext : XsltContext
+        {
+            private readonly XsltArgumentList args;
+
+            public XPathVariableContext(XsltArgumentList args)
+            {
+                this.args = args;
+            }
+
+            public override bool Whitespace => true;
+            public override int CompareDocument(string baseUri, string nextbaseUri) => 0;
+            public override bool PreserveWhitespace(XPathNavigator node) => true;
+            public override IXsltContextFunction ResolveFunction(string prefix, string name, XPathResultType[] ArgTypes) => null;
+            public override IXsltContextVariable ResolveVariable(string prefix, string name)
+            {
+                return new XPathVariable(args.GetParam(name, string.Empty));
+            }
+        }
+
+        private sealed class XPathVariable : IXsltContextVariable
+        {
+            private readonly object value;
+
+            public XPathVariable(object value)
+            {
+                this.value = value;
+            }
+
+            public bool IsLocal => false;
+            public bool IsParam => true;
+            public XPathResultType VariableType => XPathResultType.Any;
+            public object Evaluate(XsltContext xsltContext) => value;
+        }
+
         private void FindSalesPerson(string state)
         {
             XmlDocument xDoc = new XmlDocument();
             xDoc.LoadXml(xml);
-            XmlNodeList list = xDoc.SelectNodes("//salesperson[state='" + state + "']");
+
+            XPathExpression expression = xDoc.CreateNavigator().Compile("//salesperson[state=$state]");
+            XsltArgumentList arguments = new XsltArgumentList();
+            arguments.AddParam("state", string.Empty, state);
+            expression.SetContext(new XPathVariableContext(arguments));
+
+            XmlNodeList list = xDoc.SelectNodes(expression);
             if (list.Count > 0)
             {
 
